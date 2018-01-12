@@ -297,6 +297,7 @@ int ImuError::propagation(const okvis::ImuMeasurementDeque & imuMeasurements,
   okvis::Time end = t_end;
 
   // sanity check:
+  assert(imuMeasurements.size() >= 2);
   assert(imuMeasurements.front().timeStamp<=time);
   if (!(imuMeasurements.back().timeStamp >= end))
     return -1;  // nothing to do...
@@ -328,7 +329,7 @@ int ImuError::propagation(const okvis::ImuMeasurementDeque & imuMeasurements,
   bool hasStarted = false;
   int i = 0;
   for (okvis::ImuMeasurementDeque::const_iterator it = imuMeasurements.begin();
-        it != imuMeasurements.end(); ++it) {
+        it != imuMeasurements.end() - 1; ++it) {
 
     Eigen::Vector3d omega_S_0 = it->measurement.gyroscopes;
     Eigen::Vector3d acc_S_0 = it->measurement.accelerometers;
@@ -336,11 +337,7 @@ int ImuError::propagation(const okvis::ImuMeasurementDeque & imuMeasurements,
     Eigen::Vector3d acc_S_1 = (it + 1)->measurement.accelerometers;
 
     // time delta
-    okvis::Time nexttime;
-    if ((it + 1) == imuMeasurements.end()) {
-      nexttime = t_end;
-    } else
-      nexttime = (it + 1)->timeStamp;
+    okvis::Time  nexttime = (it + 1)->timeStamp;
     double dt = (nexttime - time).toSec();
 
 

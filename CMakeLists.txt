@@ -331,6 +331,24 @@ if(BUILD_APPS)
     pthread 
     ${Boost_LIBRARIES}
   )
+  add_executable(okvis_app_synchronous_upenn okvis_apps/src/okvis_app_synchronous_upenn.cpp)
+  set(OKVIS_CORE_LIBS
+      okvis_util
+      okvis_kinematics
+      okvis_time
+      okvis_cv
+      okvis_common
+      okvis_ceres
+      okvis_timing
+      okvis_matcher
+      okvis_frontend
+      okvis_multisensor_processing
+      )
+  target_link_libraries(okvis_app_synchronous_upenn
+      ${OKVIS_CORE_LIBS}
+      pthread
+      ${Boost_LIBRARIES}
+      )
   if(${VISENSORDRIVER_FOUND})
     target_link_libraries(okvis_app_synchronous ${VISensorDriver_LIBRARY})
   endif()

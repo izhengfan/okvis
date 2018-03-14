@@ -94,7 +94,7 @@ MarginalizationError::MarginalizationError(
   denseIndices_ = 0;
   residualBlockId_ = 0;
   errorComputationValid_ = false;
-  bool success = addResidualBlocks(residualBlockIds);
+  bool success = addResidualBlocks(residualBlockIds); /// \note it seems do nothing and return true, with the 2nd para[in] not given.
   OKVIS_ASSERT_TRUE(
       Exception,
       success,
@@ -293,8 +293,7 @@ bool MarginalizationError::addResidualBlock(
     OKVIS_ASSERT_TRUE_DBG(Exception, isParameterBlockConnected(parameters[i].first),
         "okvis bug: no linearization point, since not connected.");
     parametersRaw[i] =
-        parameterBlockInfos_[parameterBlockId2parameterBlockInfoIdx_[parameters[i]
-            .first]].linearizationPoint.get();  // first estimate Jacobian!!
+        parameterBlockInfos_[parameterBlockId2parameterBlockInfoIdx_[parameters[i].first]].linearizationPoint.get();  // first estimate Jacobian!!
 
     jacobiansEigen[i].resize(errorInterfacePtr->residualDim(),
                              parameters[i].second->dimension());
@@ -366,7 +365,7 @@ bool MarginalizationError::addResidualBlock(
 
   // add blocks to lhs and rhs
   for (size_t i = 0; i < parameters.size(); ++i) {
-    Map::ParameterBlockSpec parameterBlockSpec = parameters[i];
+    // Map::ParameterBlockSpec parameterBlockSpec = parameters[i];
 
     ParameterBlockInfo parameterBlockInfo_i = parameterBlockInfos_.at(
         parameterBlockId2parameterBlockInfoIdx_[parameters[i].first]);
@@ -520,7 +519,7 @@ bool MarginalizationError::marginalizeOut(
         "input vectors must either be of same size or omit optional parameter keepParameterBlocks: "<<
         parameterBlockIds.size()<<" vs "<<keepParameterBlocks.size());
   }
-  std::map<uint64_t, bool> keepParameterBlocksCopy;
+  std::map<uint64_t, bool> keepParameterBlocksCopy; // maps <id>--<keep boolean>
   for (size_t i = 0; i < parameterBlockIdsCopy.size(); ++i) {
     bool keep = false;
     if (i < keepParameterBlocks.size()) {
@@ -533,8 +532,10 @@ bool MarginalizationError::marginalizeOut(
   /* figure out which blocks need to be marginalized out */
   std::vector<std::pair<int, int> > marginalizationStartIdxAndLengthPairslandmarks;
   std::vector<std::pair<int, int> > marginalizationStartIdxAndLengthPairsDense;
-  size_t marginalizationParametersLandmarks = 0;
-  size_t marginalizationParametersDense = 0;
+  /// \note StartIndex means the starting index in matrix H of corresponding to this parameter_block
+  /// \note Length means the minDimension of this parameter_block
+  size_t marginalizationParametersLandmarks = 0;// sum of minDim of all landmark parameter_blocks to margin
+  size_t marginalizationParametersDense = 0; // sum of minDim of all dense parameter_blocks to margin
 
   // make sure no duplications...
   std::sort(parameterBlockIdsCopy.begin(), parameterBlockIdsCopy.end());
@@ -557,7 +558,7 @@ bool MarginalizationError::marginalizeOut(
       return false;
 
     // distinguish dense and landmark (sparse) part for more efficient pseudo-inversion later on
-    size_t startIdx = parameterBlockInfos_.at(it->second).orderingIdx;
+    size_t startIdx = parameterBlockInfos_.at(it->second).orderingIdx; /// \note this paramter_block's index in matrix H.
     size_t minDim = parameterBlockInfos_.at(it->second).minimalDimension;
     if (parameterBlockInfos_.at(it->second).isLandmark) {
       marginalizationStartIdxAndLengthPairslandmarks.push_back(
@@ -571,6 +572,7 @@ bool MarginalizationError::marginalizeOut(
   }
 
   // make sure the marginalization pairs are ordered
+  /// \note they should be ordered ascendingly by the StartIndex
   std::sort(marginalizationStartIdxAndLengthPairslandmarks.begin(),
             marginalizationStartIdxAndLengthPairslandmarks.end(),
             [](std::pair<int,int> left, std::pair<int,int> right) {
@@ -583,6 +585,10 @@ bool MarginalizationError::marginalizeOut(
             });
 
   // unify contiguous marginalization requests
+  /// \note if two parameter_blocks are contiguous, merge them into one
+  ///
+  /// \note all to-be-marg lankmarks parameter_blocks, if happen to be contiguous,
+  /// will be merged into one block in the matrix H.
   for (size_t m = 1; m < marginalizationStartIdxAndLengthPairslandmarks.size();
       ++m) {
     if (marginalizationStartIdxAndLengthPairslandmarks.at(m - 1).first
@@ -617,6 +623,8 @@ bool MarginalizationError::marginalizeOut(
   if (marginalizationStartIdxAndLengthPairslandmarks.size() > 0) {
 
     // preconditioner
+    /// \note (R.array() < s).select(P,Q ); means (R < s ? P : Q)
+    /// \note if one diagonal element of H is near/equal to zero, use 1e-3; if not, take its sqrt.
     Eigen::VectorXd p = (H_.diagonal().array() > 1.0e-9).select(H_.diagonal().cwiseSqrt(),1.0e-3);
     Eigen::VectorXd p_inv = p.cwiseInverse();
 
@@ -625,17 +633,17 @@ bool MarginalizationError::marginalizeOut(
     b0_ = p_inv.asDiagonal() * b0_;
 
     Eigen::MatrixXd U(H_.rows() - marginalizationParametersLandmarks,
-                      H_.rows() - marginalizationParametersLandmarks);
+                      H_.rows() - marginalizationParametersLandmarks); // size not to be marg
     Eigen::MatrixXd V(marginalizationParametersLandmarks,
-                      marginalizationParametersLandmarks);
+                      marginalizationParametersLandmarks); // size to be marg
     Eigen::MatrixXd W(H_.rows() - marginalizationParametersLandmarks,
-                      marginalizationParametersLandmarks);
-    Eigen::VectorXd b_a(H_.rows() - marginalizationParametersLandmarks);
-    Eigen::VectorXd b_b(marginalizationParametersLandmarks);
+                      marginalizationParametersLandmarks); // rows = size not to be marg; cols = size to be marg
+    Eigen::VectorXd b_a(H_.rows() - marginalizationParametersLandmarks); // size not to be marg
+    Eigen::VectorXd b_b(marginalizationParametersLandmarks); // size to be marg
 
     // split preconditioner
-    Eigen::VectorXd p_a(H_.rows() - marginalizationParametersLandmarks);
-    Eigen::VectorXd p_b(marginalizationParametersLandmarks);
+    Eigen::VectorXd p_a(H_.rows() - marginalizationParametersLandmarks); // size not to be marg
+    Eigen::VectorXd p_b(marginalizationParametersLandmarks); // size to be marg
     splitVector(marginalizationStartIdxAndLengthPairslandmarks, p, p_a, p_b);  // output
 
     // split lhs
@@ -653,20 +661,20 @@ bool MarginalizationError::marginalizeOut(
     b0_ = b_a;
     H_.resize(U.rows(), U.cols());
     H_ = U;
-    const size_t numBlocks = V.cols() / sdim;
+    const size_t numBlocks = V.cols() / sdim; // how many landmarks to marg
     std::vector<Eigen::MatrixXd, Eigen::aligned_allocator<Eigen::MatrixXd>> delta_H(
         numBlocks);
     std::vector<Eigen::VectorXd, Eigen::aligned_allocator<Eigen::VectorXd>> delta_b(
         numBlocks);
-    Eigen::MatrixXd M1(W.rows(), W.cols());
+    // Eigen::MatrixXd M1(W.rows(), W.cols());
     size_t idx = 0;
     for (size_t i = 0; int(i) < V.cols(); i += sdim) {
       Eigen::Matrix<double, sdim, sdim> V_inv_sqrt;
       Eigen::Matrix<double, sdim, sdim> V1 = V.block(i, i, sdim, sdim);
-      MarginalizationError::pseudoInverseSymmSqrt(V1, V_inv_sqrt);
+      MarginalizationError::pseudoInverseSymmSqrt(V1, V_inv_sqrt); // V1 = V_inv_sqrt * V_inv_sqrt^T
       Eigen::MatrixXd M = W.block(0, i, W.rows(), sdim) * V_inv_sqrt;
       Eigen::MatrixXd M1 = W.block(0, i, W.rows(), sdim) * V_inv_sqrt
-          * V_inv_sqrt.transpose();
+          * V_inv_sqrt.transpose(); // M1 = W.block(xxxx) * V1;
       // accumulate
       delta_H.at(idx).resize(U.rows(), U.cols());
       delta_b.at(idx).resize(b_a.rows());

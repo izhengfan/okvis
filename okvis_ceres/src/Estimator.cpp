@@ -210,7 +210,7 @@ bool Estimator::addStates(
                                                multiFrame->timestamp()));
       if(!mapPtr_->addParameterBlock(extrinsicsParameterBlockPtr,ceres::Map::Pose6d)){
         return false;
-      }
+      } 
       cameraInfos.at(CameraSensorStates::T_SCi).id = id;
     }
     // update the states info
@@ -267,7 +267,7 @@ bool Estimator::addStates(
       }
     }
     for (size_t i = 0; i < imuParametersVec_.size(); ++i) {
-      Eigen::Matrix<double,6,1> variances;
+      Eigen::Matrix<double,6,1> variances; // NOTE unused
       // get these from parameter file
       const double sigma_bg = imuParametersVec_.at(0).sigma_bg;
       const double sigma_ba = imuParametersVec_.at(0).sigma_ba;
@@ -445,6 +445,7 @@ bool Estimator::applyMarginalizationStrategy(
     }
   }
 
+  // TODO What is this
   // remove linear marginalizationError, if existing
   if (marginalizationErrorPtr_ && marginalizationResidualId_) {
     bool success = mapPtr_->removeResidualBlock(marginalizationResidualId_);
@@ -466,17 +467,19 @@ bool Estimator::applyMarginalizationStrategy(
 
   // distinguish if we marginalize everything or everything but pose
   std::vector<uint64_t> removeFrames;
-  std::vector<uint64_t> removeAllButPose;
+  std::vector<uint64_t> removeAllButPose; /// NOTE What is this
   std::vector<uint64_t> allLinearizedFrames;
   size_t countedKeyframes = 0;
   while (rit != statesMap_.rend()) {
     if (!rit->second.isKeyframe || countedKeyframes >= numKeyframes) {
       removeFrames.push_back(rit->second.id);
+      /// NOTE If not keyframe, remove it; or
+      /// NOTE if there were already many enough keyframes, remove it.
     } else {
       countedKeyframes++;
     }
-    removeAllButPose.push_back(rit->second.id);
-    allLinearizedFrames.push_back(rit->second.id);
+    removeAllButPose.push_back(rit->second.id); // All is put here
+    allLinearizedFrames.push_back(rit->second.id); // All is put here
     ++rit;// check the next frame
   }
 

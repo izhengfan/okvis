@@ -562,7 +562,7 @@ bool MarginalizationError::pseudoInverseSymm(
 // attention: this uses Eigen-decomposition, it assumes the input is symmetric positive semi-definite
 // (negative Eigenvalues are set to zero)
 /// \note A = Q * V * Q^T, Q contains all eigenvectors in the columns, V is diagonal matrix of eigenvalues
-/// \note here the result matrix L = Q * sqrtWise(V)
+/// \note here the result matrix L = Q * inverseSqrtWise(V)
 template<typename Derived>
 bool MarginalizationError::pseudoInverseSymmSqrt(
     const Eigen::MatrixBase<Derived>&a, const Eigen::MatrixBase<Derived>&result,

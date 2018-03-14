@@ -671,10 +671,10 @@ bool MarginalizationError::marginalizeOut(
     for (size_t i = 0; int(i) < V.cols(); i += sdim) {
       Eigen::Matrix<double, sdim, sdim> V_inv_sqrt;
       Eigen::Matrix<double, sdim, sdim> V1 = V.block(i, i, sdim, sdim);
-      MarginalizationError::pseudoInverseSymmSqrt(V1, V_inv_sqrt); // V1 = V_inv_sqrt * V_inv_sqrt^T
+      MarginalizationError::pseudoInverseSymmSqrt(V1, V_inv_sqrt); // V1.pinv() = (V_inv_sqrt * V_inv_sqrt^T)
       Eigen::MatrixXd M = W.block(0, i, W.rows(), sdim) * V_inv_sqrt;
       Eigen::MatrixXd M1 = W.block(0, i, W.rows(), sdim) * V_inv_sqrt
-          * V_inv_sqrt.transpose(); // M1 = W.block(xxxx) * V1;
+          * V_inv_sqrt.transpose(); // M1 = W.block(xxxx) * V1.pinv();
       // accumulate
       delta_H.at(idx).resize(U.rows(), U.cols());
       delta_b.at(idx).resize(b_a.rows());

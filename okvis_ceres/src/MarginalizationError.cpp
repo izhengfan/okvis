@@ -695,7 +695,7 @@ bool MarginalizationError::marginalizeOut(
       ++idx;
     }
     // Schur
-    b0_ -= delta_b.at(idx - 1);
+    b0_ -= delta_b.at(idx - 1);/// \note corresponds to the left step of eq(26) in the paper
     H_ -= delta_H.at(idx - 1);
 
     // unscale
@@ -864,6 +864,8 @@ void MarginalizationError::updateErrorComputation() {
 }
 
 // Computes the linearized deviation from the references (linearization points)
+/// \note Process: get the current estimation via the para_ptr, get the
+/// estiamtion at the linearization point, and compute delta in tagent space.
 bool MarginalizationError::computeDeltaChi(Eigen::VectorXd& DeltaChi) const {
   DeltaChi.resize(H_.rows());
   for (size_t i = 0; i < parameterBlockInfos_.size(); ++i) {

@@ -305,6 +305,8 @@ class MarginalizationError : public ::ceres::CostFunction, public ErrorInterface
   Eigen::VectorXd e0_;  ///<  _e0 := pinv(J^T) * _b0
   Eigen::MatrixXd J_;  ///<  Jacobian such that _J^T * J == _H
   Eigen::MatrixXd U_;  ///<  H_ = _U*_S*_U^T lhs Eigen decomposition
+  /// \note Singular values of A are the sqrt of the eigenvalues of AA^T;
+  /// if A is a positive semi definite square matrix, they are the same.
   Eigen::VectorXd S_;  ///<  singular values
   Eigen::VectorXd S_sqrt_;  ///<  cwise sqrt of _S, i.e. _S_sqrt*_S_sqrt=_S; _J=_U^T*_S_sqrt
   Eigen::VectorXd S_pinv_;  ///<  pseudo inverse of _S

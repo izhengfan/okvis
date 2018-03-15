@@ -124,6 +124,11 @@ bool MarginalizationError::addResidualBlocks(
 }
 
 // Add some residuals to this marginalisation error. This means, they will get linearised.
+/// \note What this actually do: add the residual and its connecting paras into the current H-b system, and
+/// performes the linearization (computing FEJ);
+/// It will enlarge the size of H-b. If a para is a landmark (sparse), it would be appended in the tail of H-b;
+/// if a para is pose/speed (dense), it would be inserted in the middle, i.e. in the tail of the uppler-left dense H-b, and
+/// before the head of lower-right sparse H-b.
 bool MarginalizationError::addResidualBlock(
     ::ceres::ResidualBlockId residualBlockId, bool keep) {
 
@@ -503,6 +508,9 @@ void MarginalizationError::getParameterBlockPtrs(
 }
 
 // Marginalise out a set of parameter blocks.
+/// \note What this actually do: update the H-b system by removing the H_22 b_2 part,
+/// adding their info to H_11 b_1 using schur, and then
+/// removing their info from the info-keeping storage
 bool MarginalizationError::marginalizeOut(
     const std::vector<uint64_t>& parameterBlockIds,
     const std::vector<bool> & keepParameterBlocks) {
@@ -629,6 +637,7 @@ bool MarginalizationError::marginalizeOut(
     Eigen::VectorXd p_inv = p.cwiseInverse();
 
     // scale H and b
+    // we will unscale them back after marg
     H_ = p_inv.asDiagonal() * H_ * p_inv.asDiagonal();
     b0_ = p_inv.asDiagonal() * b0_;
 
@@ -662,10 +671,8 @@ bool MarginalizationError::marginalizeOut(
     H_.resize(U.rows(), U.cols());
     H_ = U;
     const size_t numBlocks = V.cols() / sdim; // how many landmarks to marg
-    std::vector<Eigen::MatrixXd, Eigen::aligned_allocator<Eigen::MatrixXd>> delta_H(
-        numBlocks);
-    std::vector<Eigen::VectorXd, Eigen::aligned_allocator<Eigen::VectorXd>> delta_b(
-        numBlocks);
+    std::vector<Eigen::MatrixXd, Eigen::aligned_allocator<Eigen::MatrixXd>> delta_H(numBlocks);
+    std::vector<Eigen::VectorXd, Eigen::aligned_allocator<Eigen::VectorXd>> delta_b(numBlocks);
     // Eigen::MatrixXd M1(W.rows(), W.cols());
     size_t idx = 0;
     for (size_t i = 0; int(i) < V.cols(); i += sdim) {
@@ -673,14 +680,14 @@ bool MarginalizationError::marginalizeOut(
       Eigen::Matrix<double, sdim, sdim> V1 = V.block(i, i, sdim, sdim);
       MarginalizationError::pseudoInverseSymmSqrt(V1, V_inv_sqrt); // V1.pinv() = (V_inv_sqrt * V_inv_sqrt^T)
       Eigen::MatrixXd M = W.block(0, i, W.rows(), sdim) * V_inv_sqrt;
-      Eigen::MatrixXd M1 = W.block(0, i, W.rows(), sdim) * V_inv_sqrt
-          * V_inv_sqrt.transpose(); // M1 = W.block(xxxx) * V1.pinv();
+      Eigen::MatrixXd M1 = W.block(0, i, W.rows(), sdim) * V_inv_sqrt*V_inv_sqrt.transpose(); // M1 = W.block(xxxx) * V1.pinv();
+      /// \note M and M1 have the same number of rows with W and U, have the same number of cols with Para::MinDim
       // accumulate
       delta_H.at(idx).resize(U.rows(), U.cols());
       delta_b.at(idx).resize(b_a.rows());
       if (i == 0) {
-        delta_H.at(idx) = M * M.transpose();
-        delta_b.at(idx) = M1 * b_b.segment<sdim>(i);
+        delta_H.at(idx) = M * M.transpose(); // d_H_11 = H_12 * H_22.inv * H_12^T
+        delta_b.at(idx) = M1 * b_b.segment<sdim>(i); // d_b_1 = H_12 * H_22.inv * b_2
       } else {
         delta_H.at(idx) = delta_H.at(idx - 1) + M * M.transpose();
         delta_b.at(idx) = delta_b.at(idx - 1) + M1 * b_b.segment<sdim>(i);
@@ -754,6 +761,8 @@ bool MarginalizationError::marginalizeOut(
           - marginalizationParametersLandmarks);
 
   /* delete all the book-keeping */
+  /// \note Since the info the marg para is added to the H-b system,
+  /// \note we can delete them from the info-keeping storage
   for (size_t i = 0; i < parameterBlockIdsCopy.size(); ++i) {
     size_t idx = parameterBlockId2parameterBlockInfoIdx_.find(
         parameterBlockIdsCopy[i])->second;
@@ -812,6 +821,7 @@ bool MarginalizationError::marginalizeOut(
 // This must be called before optimization after adding residual blocks and/or marginalizing,
 // since it performs all the lhs and rhs computations on from a given _H and _b.
 void MarginalizationError::updateErrorComputation() {
+  // this would only be true in the end of this function; it would be set false after adding residuals and marginalizeOut
   if (errorComputationValid_)
     return;  // already done.
 
@@ -819,8 +829,8 @@ void MarginalizationError::updateErrorComputation() {
   base_t::set_num_residuals(H_.cols());
 
   // preconditioner
-  Eigen::VectorXd p = (H_.diagonal().array() > 1.0e-9).select(H_.diagonal().cwiseSqrt(),1.0e-3);
-  Eigen::VectorXd p_inv = p.cwiseInverse();
+  Eigen::VectorXd p = (H_.diagonal().array() > 1.0e-9).select(H_.diagonal().cwiseSqrt(),1.0e-3); // sqrt of H diagonals (too small values set to 1e-3)
+  Eigen::VectorXd p_inv = p.cwiseInverse();// inverse of sqrt of H diagonals (too small values set to 1e-3)
 
   // lhs SVD: _H = J^T*J = _U*S*_U^T
   Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> saes(

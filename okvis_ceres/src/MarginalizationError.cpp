@@ -744,7 +744,7 @@ bool MarginalizationError::marginalizeOut(
     Eigen::MatrixXd M = W * V_inverse_sqrt;
     // rhs
     b0_.resize(b_a.rows());
-    b0_ = (b_a - M * V_inverse_sqrt.transpose() * b_b);
+    b0_ = (b_a - M * V_inverse_sqrt.transpose() * b_b);/// \note corresponds to the left step of eq(26) in the paper
     // lhs
     H_.resize(U.rows(), U.cols());
 
@@ -834,14 +834,14 @@ void MarginalizationError::updateErrorComputation() {
 
   // lhs SVD: _H = J^T*J = _U*S*_U^T
   Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> saes(
-      0.5  * p_inv.asDiagonal() * (H_ + H_.transpose())  * p_inv.asDiagonal() );
+      0.5  * p_inv.asDiagonal() * (H_ + H_.transpose())  * p_inv.asDiagonal() ); // normalize H
 
   static const double epsilon = std::numeric_limits<double>::epsilon();
   double tolerance = epsilon * H_.cols()
       * saes.eigenvalues().array().maxCoeff();
   S_ = Eigen::VectorXd(
       (saes.eigenvalues().array() > tolerance).select(
-          saes.eigenvalues().array(), 0));
+          saes.eigenvalues().array(), 0)); // /
   S_pinv_ = Eigen::VectorXd(
       (saes.eigenvalues().array() > tolerance).select(
           saes.eigenvalues().array().inverse(), 0));
@@ -884,6 +884,8 @@ bool MarginalizationError::computeDeltaChi(Eigen::VectorXd& DeltaChi) const {
 }
 
 // Computes the linearized deviation from the references (linearization points)
+/// \note Process: get the current estimation via the para_ptr, get the
+/// estiamtion at the linearization point, and compute delta in tagent space.
 bool MarginalizationError::computeDeltaChi(double const* const * parameters,
                                            Eigen::VectorXd& DeltaChi) const {
   DeltaChi.resize(H_.rows());
@@ -953,14 +955,14 @@ bool MarginalizationError::EvaluateWithMinimalJacobians(
         parameterBlockInfos_[i].parameterBlockPtr->liftJacobian(
             parameterBlockInfos_[i].linearizationPoint.get(), J_lift.data());
 
-        J_i = Jmin_i * J_lift;
+        J_i = Jmin_i * J_lift; // J_err_group = J_err_algebra * J_algebra_group
       }
     }
   }
 
   // finally the error (residual) e = (-pinv(J^T) * _b + _J*Delta_Chi):
   Eigen::Map<Eigen::VectorXd> e(residuals, e0_.rows());
-  e = e0_ + J_ * Delta_Chi;
+  e = e0_ + J_ * Delta_Chi; /// \note corresponds to the right step of eq(26) in the paper
 
   return true;
 }

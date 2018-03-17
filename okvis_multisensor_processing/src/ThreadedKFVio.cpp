@@ -760,6 +760,9 @@ void ThreadedKFVio::optimizationLoop() {
             estimator_.frameIdByAge(parameters_.optimization.numImuFrames))
             ->timestamp() - temporal_imu_data_overlap;
       }
+      /// \todo Can we figure out the difference between the states for estimator.optimize()
+      /// and the states for estimator.applyMarg() ? Or the difference between estimator.optimize()
+      /// and estimator.applyMarg() ?
 
       marginalizationTimer.start();
       estimator_.applyMarginalizationStrategy(

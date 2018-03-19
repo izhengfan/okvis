@@ -582,6 +582,62 @@ class Estimator : public VioBackendInterface
 
 }  // namespace okvis
 
-#include "implementation/Estimator.hpp"
+/// \note We move the implementation here to please our IDE.
+
+//#include "implementation/Estimator.hpp"
+/// \brief okvis Main namespace of this package.
+namespace okvis {
+
+// Add an observation to a landmark.
+template<class GEOMETRY_TYPE>
+::ceres::ResidualBlockId Estimator::addObservation(uint64_t landmarkId,
+                                                   uint64_t poseId,
+                                                   size_t camIdx,
+                                                   size_t keypointIdx) {
+  OKVIS_ASSERT_TRUE_DBG(Exception, isLandmarkAdded(landmarkId),
+                        "landmark not added");
+
+  // avoid double observations
+  okvis::KeypointIdentifier kid(poseId, camIdx, keypointIdx);
+  if (landmarksMap_.at(landmarkId).observations.find(kid)
+      != landmarksMap_.at(landmarkId).observations.end()) {
+    return NULL;
+  }
+
+  // get the keypoint measurement
+  okvis::MultiFramePtr multiFramePtr = multiFramePtrMap_.at(poseId);
+  Eigen::Vector2d measurement;
+  multiFramePtr->getKeypoint(camIdx, keypointIdx, measurement);
+  Eigen::Matrix2d information = Eigen::Matrix2d::Identity();
+  double size = 1.0;
+  multiFramePtr->getKeypointSize(camIdx, keypointIdx, size);
+  information *= 64.0 / (size * size);
+
+  // create error term
+  std::shared_ptr < ceres::ReprojectionError
+      < GEOMETRY_TYPE
+          >> reprojectionError(
+              new ceres::ReprojectionError<GEOMETRY_TYPE>(
+                  multiFramePtr->template geometryAs<GEOMETRY_TYPE>(camIdx),
+                  camIdx, measurement, information));
+
+  ::ceres::ResidualBlockId retVal = mapPtr_->addResidualBlock(
+      reprojectionError,
+      cauchyLossFunctionPtr_ ? cauchyLossFunctionPtr_.get() : NULL,
+      mapPtr_->parameterBlockPtr(poseId),
+      mapPtr_->parameterBlockPtr(landmarkId),
+      mapPtr_->parameterBlockPtr(
+          statesMap_.at(poseId).sensors.at(SensorStates::Camera).at(camIdx).at(
+              CameraSensorStates::T_SCi).id));
+
+  // remember
+  landmarksMap_.at(landmarkId).observations.insert(
+      std::pair<okvis::KeypointIdentifier, uint64_t>(
+          kid, reinterpret_cast<uint64_t>(retVal)));
+
+  return retVal;
+}
+
+}  // namespace okvis
 
 #endif /* INCLUDE_OKVIS_ESTIMATOR_HPP_ */

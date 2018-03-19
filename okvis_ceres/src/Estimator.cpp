@@ -435,7 +435,7 @@ bool Estimator::applyMarginalizationStrategy(
     size_t numKeyframes, size_t numImuFrames,
     okvis::MapPointVector& removedLandmarks)
 {
-  // keep the newest numImuFrames
+  /// keep the newest numImuFrames
   std::map<uint64_t, States>::reverse_iterator rit = statesMap_.rbegin();
   for(size_t k=0; k<numImuFrames; k++){
     rit++;
@@ -445,7 +445,9 @@ bool Estimator::applyMarginalizationStrategy(
     }
   }
 
-  // TODO What is this
+  /// \todo What is this
+  /// \note maybe at every marg step we need to construct a new margErr object,
+  /// so the previous one must be deleted
   // remove linear marginalizationError, if existing
   if (marginalizationErrorPtr_ && marginalizationResidualId_) {
     bool success = mapPtr_->removeResidualBlock(marginalizationResidualId_);
@@ -467,14 +469,14 @@ bool Estimator::applyMarginalizationStrategy(
 
   // distinguish if we marginalize everything or everything but pose
   std::vector<uint64_t> removeFrames;
-  std::vector<uint64_t> removeAllButPose; /// NOTE What is this
+  std::vector<uint64_t> removeAllButPose; /// \todo What is this
   std::vector<uint64_t> allLinearizedFrames;
   size_t countedKeyframes = 0;
   while (rit != statesMap_.rend()) {
     if (!rit->second.isKeyframe || countedKeyframes >= numKeyframes) {
       removeFrames.push_back(rit->second.id);
-      /// NOTE If not keyframe, remove it; or
-      /// NOTE if there were already many enough keyframes, remove it.
+      /// \note If not keyframe, remove it; or
+      /// \note if there were already many enough keyframes, remove it.
     } else {
       countedKeyframes++;
     }
@@ -482,16 +484,21 @@ bool Estimator::applyMarginalizationStrategy(
     allLinearizedFrames.push_back(rit->second.id); // All is put here
     ++rit;// check the next frame
   }
+  /// \note Now, all states in statesMap are put in removeAllButPose and allLinearizedFrames
 
   // marginalize everything but pose:
   for(size_t k = 0; k<removeAllButPose.size(); ++k){
     std::map<uint64_t, States>::iterator it = statesMap_.find(removeAllButPose[k]);
+    /// \note Because in current system only GlobalStates::T_WS is used, so the for-loop below is basically useless.
+    /// \note therefore we wrap it by commenting it now.
+    /*
     for (size_t i = 0; i < it->second.global.size(); ++i) {
       if (i == GlobalStates::T_WS) {
         continue; // we do not remove the pose here.
       }
       if (!it->second.global[i].exists) {
         continue; // if it doesn't exist, we don't do anything.
+        /// \note Because in current system only GlobalStates::T_WS is used, so the program will always continue here.
       }
       if (mapPtr_->parameterBlockPtr(it->second.global[i].id)->fixed()) {
         continue;  // we never eliminate fixed blocks.
@@ -517,10 +524,11 @@ bool Estimator::applyMarginalizationStrategy(
         }
       }
     }
+    */
     // add all error terms of the sensor states.
-    for (size_t i = 0; i < it->second.sensors.size(); ++i) {
-      for (size_t j = 0; j < it->second.sensors[i].size(); ++j) {
-        for (size_t k = 0; k < it->second.sensors[i][j].size(); ++k) {
+    for (size_t i = 0; i < it->second.sensors.size(); ++i) { /// \note level 1 : imu or camera
+      for (size_t j = 0; j < it->second.sensors[i].size(); ++j) { /// \note level 2 : left camera or right camera
+        for (size_t k = 0; k < it->second.sensors[i][j].size(); ++k) { /// \note level 3 : camera extrinsics or intrinsics
           if (i == SensorStates::Camera && k == CameraSensorStates::T_SCi) {
             continue; // we do not remove the extrinsics pose here.
           }
@@ -539,6 +547,9 @@ bool Estimator::applyMarginalizationStrategy(
             continue;
           }
           it->second.sensors[i][j][k].exists = false; // remember we removed
+
+          /// \note Now, let's be clear: only states of ImuSensorStates::SpeedAndBias will be marg out here.
+
           paremeterBlocksToBeMarginalized.push_back(it->second.sensors[i][j][k].id);
           keepParameterBlocks.push_back(false);
           ceres::Map::ResidualBlockCollection residuals = mapPtr_->residuals(
@@ -548,13 +559,23 @@ bool Estimator::applyMarginalizationStrategy(
                 std::dynamic_pointer_cast<ceres::ReprojectionErrorBase>(
                 residuals[r].errorInterfacePtr);
             if(!reprojectionError){   // we make sure no reprojection errors are yet included.
+              /// \note This would always happen ....
               marginalizationErrorPtr_->addResidualBlock(residuals[r].residualBlockId);
+            }
+            else {
+              /// \warning This would never happen ....
+              std::cout << "This should not happen, if you see this sentence, that means there is sth wrong ..." << std::endl;
+              throw;
             }
           }
         }
       }
     }
   }
+
+  /// \note Now, let's be clear: the SpeedAndBias states info to be marg was added to paremeterBlocksToBeMarginalized.
+  /// \note The residuals concerning the SpeedAndBias states to be marg were added to marginalizationErrorPtr_.
+
   // marginalize ONLY pose now:
   bool reDoFixation = false;
   for(size_t k = 0; k<removeFrames.size(); ++k){
@@ -562,6 +583,7 @@ bool Estimator::applyMarginalizationStrategy(
 
     // schedule removal - but always keep the very first frame.
     //if(it != statesMap_.begin()){
+    /// \note this block here add pose states to the para vector to be marg
     if(true){ /////DEBUG
       it->second.global[GlobalStates::T_WS].exists = false; // remember we removed
       paremeterBlocksToBeMarginalized.push_back(it->second.global[GlobalStates::T_WS].id);
@@ -583,11 +605,13 @@ bool Estimator::applyMarginalizationStrategy(
           std::dynamic_pointer_cast<ceres::ReprojectionErrorBase>(
           residuals[r].errorInterfacePtr);
       if(!reprojectionError){   // we make sure no reprojection errors are yet included.
+        /// \note in our mono test, this does not happen, which means the error is always a reprojectError
         marginalizationErrorPtr_->addResidualBlock(residuals[r].residualBlockId);
       }
     }
 
     // add remaining error terms of the sensor states.
+    /// \note this block here add extrinsics states to the para vector to be marg
     size_t i = SensorStates::Camera;
     for (size_t j = 0; j < it->second.sensors[i].size(); ++j) {
       size_t k = CameraSensorStates::T_SCi;
@@ -615,6 +639,7 @@ bool Estimator::applyMarginalizationStrategy(
             std::dynamic_pointer_cast<ceres::ReprojectionErrorBase>(
             residuals[r].errorInterfacePtr);
         if(!reprojectionError){   // we make sure no reprojection errors are yet included.
+          std::cout << "Hay there this is not a reproject error " << std::endl;
           marginalizationErrorPtr_->addResidualBlock(residuals[r].residualBlockId);
         }
       }

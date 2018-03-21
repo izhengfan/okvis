@@ -484,7 +484,8 @@ bool Estimator::applyMarginalizationStrategy(
     allLinearizedFrames.push_back(rit->second.id); // All is put here
     ++rit;// check the next frame
   }
-  /// \note Now, all states in statesMap are put in removeAllButPose and allLinearizedFrames
+  /// \note Now, all states in statesMap, except for the newest several frames, are put in removeAllButPose and allLinearizedFrames
+  /// \note among which, those who are not keyframe or the oldest keyframe that exceeds the max amount, are put in removeFrames
 
   // marginalize everything but pose:
   for(size_t k = 0; k<removeAllButPose.size(); ++k){
@@ -575,6 +576,7 @@ bool Estimator::applyMarginalizationStrategy(
 
   /// \note Now, let's be clear: the SpeedAndBias states info to be marg was added to paremeterBlocksToBeMarginalized.
   /// \note The residuals concerning the SpeedAndBias states to be marg were added to marginalizationErrorPtr_.
+  /// \note Residuals concerning SpeedAndBias are not ReprojectionError.
 
   // marginalize ONLY pose now:
   bool reDoFixation = false;
@@ -583,7 +585,7 @@ bool Estimator::applyMarginalizationStrategy(
 
     // schedule removal - but always keep the very first frame.
     //if(it != statesMap_.begin()){
-    /// \note this block here add pose states to the para vector to be marg
+    /// \note This block here add pose states to the para vector to be marg
     if(true){ /////DEBUG
       it->second.global[GlobalStates::T_WS].exists = false; // remember we removed
       paremeterBlocksToBeMarginalized.push_back(it->second.global[GlobalStates::T_WS].id);
@@ -597,7 +599,8 @@ bool Estimator::applyMarginalizationStrategy(
     for (size_t r = 0; r < residuals.size(); ++r) {
       if(std::dynamic_pointer_cast<ceres::PoseError>(
            residuals[r].errorInterfacePtr)){ // avoids linearising initial pose error
-				mapPtr_->removeResidualBlock(residuals[r].residualBlockId);
+        /// \note This might and might not happen
+        mapPtr_->removeResidualBlock(residuals[r].residualBlockId);
 				reDoFixation = true;
         continue;
       }
@@ -605,13 +608,13 @@ bool Estimator::applyMarginalizationStrategy(
           std::dynamic_pointer_cast<ceres::ReprojectionErrorBase>(
           residuals[r].errorInterfacePtr);
       if(!reprojectionError){   // we make sure no reprojection errors are yet included.
-        /// \note in our mono test, this does not happen, which means the error is always a reprojectError
+        /// \note in our mono test, this does not happen, which means the error is, if not a PoseError, always a reprojectError
         marginalizationErrorPtr_->addResidualBlock(residuals[r].residualBlockId);
       }
     }
 
     // add remaining error terms of the sensor states.
-    /// \note this block here add extrinsics states to the para vector to be marg
+    /// \note This block here add extrinsics states to the para vector to be marg
     size_t i = SensorStates::Camera;
     for (size_t j = 0; j < it->second.sensors[i].size(); ++j) {
       size_t k = CameraSensorStates::T_SCi;
@@ -639,6 +642,7 @@ bool Estimator::applyMarginalizationStrategy(
             std::dynamic_pointer_cast<ceres::ReprojectionErrorBase>(
             residuals[r].errorInterfacePtr);
         if(!reprojectionError){   // we make sure no reprojection errors are yet included.
+          /// \note in our mono test, this does not happen, which means the error is always a reprojectError
           std::cout << "Hay there this is not a reproject error " << std::endl;
           marginalizationErrorPtr_->addResidualBlock(residuals[r].residualBlockId);
         }
@@ -649,6 +653,7 @@ bool Estimator::applyMarginalizationStrategy(
     OKVIS_ASSERT_TRUE_DBG(Exception, allLinearizedFrames.size()>0, "bug");
     uint64_t currentKfId = allLinearizedFrames.at(0);
 
+    /// \todo let's figure out what this block actually do.
     {
       for(PointMap::iterator pit = landmarksMap_.begin();
           pit != landmarksMap_.end(); ){
@@ -685,6 +690,11 @@ bool Estimator::applyMarginalizationStrategy(
               visibleInFrame.insert(std::pair<uint64_t,bool>(poseId,true));
               obsCount++;
             }
+          }
+          else {
+            /// \warning This should not happen, i.e. the residual must be a ReprojectionError.
+            std::cout << "Hay this is not a reprojection error." << std::endl;
+            throw;
           }
         }
 

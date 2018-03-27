@@ -512,6 +512,18 @@ bool ImuError::EvaluateWithMinimalJacobians(double const* const * parameters,
                                             double* residuals,
                                             double** jacobians,
                                             double** jacobiansMinimal) const {
+  /// \note parameters
+  ///    [0] : Tws0 ( x, y, z, qx, qy, qz, qw )
+  ///        increment: ( dx, dy, dz, ax, ay, az )
+  ///    [1] : SpeedAndBias0 ( vx, vy, vz, bg1-3, ba1-3 )
+  ///    [2] : Tws1
+  ///    [3] : SpeedAndBias1
+  /// \note residuals
+  ///    [0-2] delta_p
+  ///    [3-5] delta_R
+  ///    [6-8] delta_v
+  ///    [9-11] delta_bg
+  ///    [12-14] delta_ba
 
   // get poses
   const okvis::kinematics::Transformation T_WS_0(
@@ -544,6 +556,7 @@ bool ImuError::EvaluateWithMinimalJacobians(double const* const * parameters,
           - speedAndBiases_ref_.tail<6>();
   }
   redo_ = redo_ || (Delta_b.head<3>().norm() * Delta_t > 0.0001);
+  /// \note When bias is too big, redo preintegration
   if (redo_) {
     redoPreintegration(T_WS_0, speedAndBiases_0);
     redoCounter_++;
@@ -564,10 +577,14 @@ bool ImuError::EvaluateWithMinimalJacobians(double const* const * parameters,
         Eigen::Matrix<double,15,15>::Identity(); // holds for d/db_g, d/db_a
     const Eigen::Vector3d delta_p_est_W =
         T_WS_0.r() - T_WS_1.r() + speedAndBiases_0.head<3>()*Delta_t - 0.5*g_W*Delta_t*Delta_t;
+    /// p0 - p1 + v0*dt - 0.5*g*dt*dt
     const Eigen::Vector3d delta_v_est_W =
         speedAndBiases_0.head<3>() - speedAndBiases_1.head<3>() - g_W*Delta_t;
+    /// v0 - v1 - g*dt
     const Eigen::Quaterniond Dq = okvis::kinematics::deltaQ(-dalpha_db_g_*Delta_b.head<3>())*Delta_q_;
+    /// Exp(d_R_d_bg * d_bg) * d_R
     F0.block<3,3>(0,0) = C_S0_W;
+    /// R0.inv
     F0.block<3,3>(0,3) = C_S0_W * okvis::kinematics::crossMx(delta_p_est_W);
     F0.block<3,3>(0,6) = C_S0_W * Eigen::Matrix3d::Identity()*Delta_t;
     F0.block<3,3>(0,9) = dp_db_g_;
@@ -594,6 +611,9 @@ bool ImuError::EvaluateWithMinimalJacobians(double const* const * parameters,
     Eigen::Matrix<double, 15, 1> error;
     error.segment<3>(0) =  C_S0_W * delta_p_est_W + acc_doubleintegral_ + F0.block<3,6>(0,9)*Delta_b;
     error.segment<3>(3) = 2*(Dq*(T_WS_1.q().inverse()*T_WS_0.q())).vec(); //2*T_WS_0.q()*Dq*T_WS_1.q().inverse();//
+    /// \todo Let's figure out the relation between
+    ///       1) Jacobians based on quaternions multi, and
+    ///       2) Jacobians based on Lie group/Lie algebra.
     error.segment<3>(6) = C_S0_W * delta_v_est_W + acc_integral_ + F0.block<3,6>(6,9)*Delta_b;
     error.tail<6>() = speedAndBiases_0.tail<6>() - speedAndBiases_1.tail<6>();
 

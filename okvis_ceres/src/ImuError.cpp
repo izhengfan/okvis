@@ -466,7 +466,7 @@ int ImuError::propagation(const okvis::ImuMeasurementDeque & imuMeasurements,
   }
 
   // actual propagation output:
-  const Eigen::Vector3d g_W = imuParams.g * Eigen::Vector3d(0, 0, 6371009).normalized();
+  const Eigen::Vector3d g_W = imuParams.g * Eigen::Vector3d(0, 0, 6371009).normalized(); // [0,0,9.8]
   T_WS.set(r_0+speedAndBiases.head<3>()*Delta_t
              + C_WS_0*(acc_doubleintegral/*-C_doubleintegral*speedAndBiases.segment<3>(6)*/)
              - 0.5*g_W*Delta_t*Delta_t,
@@ -614,6 +614,7 @@ bool ImuError::EvaluateWithMinimalJacobians(double const* const * parameters,
     /// \todo Let's figure out the relation between
     ///       1) Jacobians based on quaternions multi, and
     ///       2) Jacobians based on Lie group/Lie algebra.
+    /// \note This has been figured out: https://zhuanlan.zhihu.com/p/35041587?group_id=962460014200397824
     error.segment<3>(6) = C_S0_W * delta_v_est_W + acc_integral_ + F0.block<3,6>(6,9)*Delta_b;
     error.tail<6>() = speedAndBiases_0.tail<6>() - speedAndBiases_1.tail<6>();
 

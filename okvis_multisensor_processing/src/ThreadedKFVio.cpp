@@ -761,8 +761,18 @@ void ThreadedKFVio::optimizationLoop() {
             ->timestamp() - temporal_imu_data_overlap;
       }
       /// \todo Can we figure out the difference between the states for estimator.optimize()
-      /// and the states for estimator.applyMarg() ? Or the difference between estimator.optimize()
-      /// and estimator.applyMarg() ?
+      ///   and the states for estimator.applyMarg() ? Or the difference between estimator.optimize()
+      ///   and estimator.applyMarg() ?
+      /// \note Now the process is clear:
+      ///   In matchingLoop, we use estimator.addStates() to add Frame pose states and IMU measurements
+      ///     and use frontend.dataAssociationAndInitialization() to add landmarks states and observations;
+      ///   In optimizationLoop, we perform the optimization, and
+      ///     if the states window is oversize, apply the marginalisation,
+      ///     and the marginalisation window is summarized into one residual.
+      ///   Therefore, if after marginalization, the states and residuals in the map to be optimized contains:
+      ///     1. the states, measurements, landmarks, and observations added in matchingLoop which are newer than the marg window
+      ///     2. the states in the marg window with one residual
+      ///
 
       marginalizationTimer.start();
       estimator_.applyMarginalizationStrategy(
@@ -802,8 +812,8 @@ void ThreadedKFVio::optimizationLoop() {
             new VioVisualizer::VisualizationData());
         visualizationDataPtr->observations.resize(frame_pairs->numKeypoints());
         okvis::MapPoint landmark;
-        okvis::ObservationVector::iterator it = visualizationDataPtr
-            ->observations.begin();
+        //okvis::ObservationVector::iterator it = visualizationDataPtr->observations.begin();
+        auto it = visualizationDataPtr->observations.begin();
         for (size_t camIndex = 0; camIndex < frame_pairs->numFrames();
             ++camIndex) {
           for (size_t k = 0; k < frame_pairs->numKeypoints(camIndex); ++k) {

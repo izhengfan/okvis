@@ -400,6 +400,8 @@ int Frontend::matchToKeyframes(okvis::Estimator& estimator,
       matchingAlgorithm.setFrames(olderFrameId, currentFrameId, im, im);
 
       // match 3D-2D
+      /// \note estimator.addLandmark()/.addObservation() may be called here:
+      ///       match() -> matchBody() -> matchingAlgorithm.setBestMatch() -> estimator.addLandmark(), estimator.addObservation()
       matcher_->match<MATCHING_ALGORITHM>(matchingAlgorithm);
       retCtr += matchingAlgorithm.numMatches();
       numUncertainMatches += matchingAlgorithm.numUncertainMatches();

@@ -11,6 +11,7 @@ set(OKVIS_VERSION
 option (BUILD_APPS
   "Builds a demo app (which requires boost)" ON)
 
+
 # Offer the user the choice of overriding the installation directories
 set(INSTALL_LIB_DIR lib CACHE PATH "Installation directory for libraries")
 set(INSTALL_BIN_DIR bin CACHE PATH "Installation directory for executables")

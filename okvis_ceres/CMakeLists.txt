@@ -3,10 +3,16 @@ project(okvis_ceres)
 
 # require Eigen
 find_package( Eigen REQUIRED )
-include_directories(${EIGEN_INCLUDE_DIR}) 
-               
-# build the library 
-add_library(${PROJECT_NAME} 
+include_directories(${EIGEN_INCLUDE_DIR})
+
+find_package(SuiteSparse REQUIRED QUIET) #will be needed in any case...
+find_package( Ceres 1.9 REQUIRED
+    PATHS $ENV{HOME}/.local/okvis/share/Ceres/ NO_DEFAULT_PATH)
+include_directories(BEFORE ${CERES_INCLUDE_DIRS})
+message(STATUS "Using system Ceres.")
+find_package(OpenMP QUIET)
+add_definitions(-DUSE_OPENMP)
+add_library(${PROJECT_NAME}
   src/PoseParameterBlock.cpp
   src/SpeedAndBiasParameterBlock.cpp
   src/HomogeneousPointParameterBlock.cpp
@@ -27,42 +33,18 @@ add_library(${PROJECT_NAME}
 )
 
 # and link it
-target_link_libraries(${PROJECT_NAME} 
+target_link_libraries(${PROJECT_NAME}
   PUBLIC okvis_util
-  PUBLIC okvis_cv 
+  PUBLIC okvis_cv
   PUBLIC okvis_common
-  PRIVATE ${CERES_LIBRARIES} 
-  PRIVATE ${OpenCV_LIBRARIES} 
+  ${CERES_LIBRARIES}
+  gomp
+  PRIVATE ${OpenCV_LIBRARIES}
 )
 
 # installation if required
 install(TARGETS ${PROJECT_NAME}
-  EXPORT okvisTargets 
+  EXPORT okvisTargets
   ARCHIVE DESTINATION "${INSTALL_LIB_DIR}" COMPONENT lib
 )
 install(DIRECTORY include/ DESTINATION ${INSTALL_INCLUDE_DIR} COMPONENT dev FILES_MATCHING PATTERN "*.hpp")
-
-# testing
-if(BUILD_TESTS)
-  if(APPLE)
-    add_definitions(-DGTEST_HAS_TR1_TUPLE=1)
-  else()
-    add_definitions(-DGTEST_HAS_TR1_TUPLE=0)
-  endif(APPLE)
-  enable_testing()
-  set(PROJECT_TEST_NAME ${PROJECT_NAME}_test)
-  add_executable(${PROJECT_TEST_NAME}
-    test/test_main.cpp
-    test/TestEstimator.cpp
-    test/TestHomogeneousPointError.cpp
-    test/TestReprojectionError.cpp
-    test/TestImuError.cpp
-    test/TestMap.cpp
-    test/TestMarginalization.cpp
-  )
-  target_link_libraries(${PROJECT_TEST_NAME} 
-    ${PROJECT_NAME} 
-    ${GTEST_LIBRARY}  
-    pthread)
-  add_test(test ${PROJECT_TEST_NAME})
-endif()

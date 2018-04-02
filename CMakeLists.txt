@@ -17,7 +17,7 @@ option (BUILD_APPS
         "Builds a demo app (which requires boost)" ON) 
 option (BUILD_TESTS
         "Builds all gtests" OFF) 
-SET(N_CORES 3 CACHE STRING "Using N number of cores for parallel build")
+SET(N_CORES 2 CACHE STRING "Using N number of cores for parallel build")
 
 # Offer the user the choice of overriding the installation directories
 set(INSTALL_LIB_DIR lib CACHE PATH "Installation directory for libraries")

@@ -11,7 +11,8 @@ find_package( Eigen REQUIRED )
 include_directories(${EIGEN_INCLUDE_DIR})
 
 # require opengv
-find_package( opengv REQUIRED)
+find_package( opengv REQUIRED
+  PATHS $ENV{HOME}/.local/okvis/CMake/ NO_DEFAULT_PATH)
 # build the library
 add_library(${PROJECT_NAME}
   src/Frontend.cpp

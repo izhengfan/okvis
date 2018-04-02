@@ -1,6 +1,5 @@
-wget https://www.doc.ic.ac.uk/~sleutene/software/brisk-2.0.3.zip
-unzip brisk-2.0.3.zip
-cd brisk
+git clone https://github.com/laurentkneip/opengv.git
+cd opengv
 mkdir build
 cd build
 cmake .. \

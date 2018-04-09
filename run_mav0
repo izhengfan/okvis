@@ -1,0 +1,1 @@
+build/okvis_app_synchronous config/config_fpga_p2_euroc_mono.yaml ~/dataset/mav0

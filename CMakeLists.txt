@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 2.8.11)
+message("### use cmake version " ${CMAKE_VERSION})
 
 project(okvis)
 # The version number.
@@ -8,7 +9,8 @@ set(OKVIS_PATCH_VERSION 3)
 set(OKVIS_VERSION
   ${OKVIS_MAJOR_VERSION}.${OKVIS_MINOR_VERSION}.${OKVIS_PATCH_VERSION})
 
-message("### use cmake version" ${CMAKE_VERSION})
+set(CMAKE_INSTALL_PREFIX $ENV{HOME}/.local/okvis-master)
+
 # options for build configuration
 option (USE_SYSTEM_BRISK
   "Use brisk via find_package rather than downloading it as part of okvis" OFF) 
@@ -315,38 +317,29 @@ include_directories(okvis_multisensor_processing/include)
 add_subdirectory(okvis_multisensor_processing)
 add_dependencies(okvis_multisensor_processing okvis_util)
 
+set(OKVIS_CORE_LIBS
+  okvis_util
+  okvis_kinematics
+  okvis_time
+  okvis_cv
+  okvis_common
+  okvis_ceres
+  okvis_timing
+  okvis_matcher
+  okvis_frontend
+  okvis_multisensor_processing
+  )
 # also build the apps
 if(BUILD_APPS)
   FIND_PACKAGE(Boost COMPONENTS filesystem system REQUIRED)
   include_directories(${Boost_INCLUDE_DIRS}) 
   add_executable(okvis_app_synchronous okvis_apps/src/okvis_app_synchronous.cpp)
   target_link_libraries(okvis_app_synchronous 
-    okvis_util
-    okvis_kinematics
-    okvis_time
-    okvis_cv 
-    okvis_common
-    okvis_ceres
-    okvis_timing
-    okvis_matcher
-    okvis_frontend 
-    okvis_multisensor_processing
+    ${OKVIS_CORE_LIBS}
     pthread 
     ${Boost_LIBRARIES}
     )
   add_executable(okvis_app_synchronous_upenn okvis_apps/src/okvis_app_synchronous_upenn.cpp)
-  set(OKVIS_CORE_LIBS
-    okvis_util
-    okvis_kinematics
-    okvis_time
-    okvis_cv
-    okvis_common
-    okvis_ceres
-    okvis_timing
-    okvis_matcher
-    okvis_frontend
-    okvis_multisensor_processing
-    )
   target_link_libraries(okvis_app_synchronous_upenn
     ${OKVIS_CORE_LIBS}
     pthread

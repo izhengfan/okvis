@@ -1,0 +1,1 @@
+build/okvis_app_synchronous_upenn config/config_upenn.yaml ~/dataset/visensor/bf/

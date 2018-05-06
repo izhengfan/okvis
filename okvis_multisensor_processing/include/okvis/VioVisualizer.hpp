@@ -97,7 +97,7 @@ class VioVisualizer {
    */
   cv::Mat drawMatches(VisualizationData::Ptr& data, size_t image_number);
   
- private:
+ protected:
   /**
    * @brief Circles all keypoints in the current frame and returns the result.
    * @param data Visualization data.

@@ -411,7 +411,7 @@ class Estimator : public VioBackendInterface
   }
   ///@}
 
- private:
+ protected:
 
   /**
    * @brief Remove an observation from a landmark.

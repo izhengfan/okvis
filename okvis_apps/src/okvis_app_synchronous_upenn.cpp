@@ -48,6 +48,7 @@
 #include <memory>
 #include <functional>
 #include <atomic>
+#include <iomanip>
 
 #include <Eigen/Core>
 
@@ -81,12 +82,17 @@ class PoseViewer
  public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   constexpr static const double imageSize = 500.0;
+  ofstream logfile;
   PoseViewer()
   {
     cv::namedWindow("OKVIS Top View");
     _image.create(imageSize, imageSize, CV_8UC3);
     drawing_ = false;
     showing_ = false;
+  }
+  ~PoseViewer()
+  {
+      if(logfile.is_open()) logfile.close();
   }
   // this we can register as a callback
   void publishFullStateAsCallback(
@@ -102,6 +108,22 @@ class PoseViewer
     // just append the path
     Eigen::Vector3d r = T_WS.r();
     Eigen::Matrix3d C = T_WS.C();
+
+    /// write to the log file
+    logfile << std::fixed << std::setprecision(8);
+    logfile << std::setw(12) << exact_time << " ";
+    for(int i = 0; i < 3; ++i)
+    {
+        for(int j = 0; j < 3; ++j)
+        {
+            logfile << std::setw(12) << C(i,j) << " ";
+//            logfile << std::setprecision(8) << std::setw(12) << std::fixed << C(i,j) << " ";
+        }
+        logfile << std::setw(12) << r(i) << " ";
+//        logfile << std::setprecision(8) << std::setw(12) << std::fixed << r(i) << " ";
+    }
+    logfile << std::endl;
+
     _path.push_back(cv::Point2d(r[0], r[1]));
     _heights.push_back(r[2]);
     // maintain scaling
@@ -262,6 +284,10 @@ int main(int argc, char **argv)
 
   // the folder path
   std::string path(argv[2]);
+
+  // log pose output
+  std::string pose_filename = path + "/poses.txt";
+  poseViewer.logfile.open(pose_filename);
 
   const unsigned int numCameras = parameters.nCameraSystem.numCameras();
 

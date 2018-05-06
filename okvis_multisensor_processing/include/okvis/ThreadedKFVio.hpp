@@ -235,13 +235,13 @@ class ThreadedKFVio : public VioInterface {
   /// \brief Trigger display (needed because OSX won't allow threaded display).
   void display();
 
- private:
+ protected:
   /// \brief Start all threads.
   virtual void startThreads();
   /// \brief Initialises settings and calls startThreads().
   void init();
 
- private:
+ protected:
 
   /// \brief Loop to process frames from camera with index cameraIndex
   void frameConsumerLoop(size_t cameraIndex);
@@ -286,7 +286,7 @@ class ThreadedKFVio : public VioInterface {
    */
   int deleteImuMeasurements(const okvis::Time& eraseUntil);
 
- private:
+ protected:
 
   /// @brief This struct contains the results of the optimization for ease of publication.
   ///        It is also used for publishing poses that have been propagated with the IMU

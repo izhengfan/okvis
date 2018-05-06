@@ -107,7 +107,7 @@ class FrameSynchronizer {
    */
   bool detectionCompletedForAllCameras(uint64_t multiFrameId);
 
- private:
+ protected:
 
   /**
    * @brief Find a multiframe in the buffer that has a timestamp within the tolerances of the given one. The tolerance

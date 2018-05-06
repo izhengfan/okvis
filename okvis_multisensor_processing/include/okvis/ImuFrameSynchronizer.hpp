@@ -79,7 +79,7 @@ class ImuFrameSynchronizer {
   /// @brief Tell the synchronizer to shutdown. This will notify all waiting threads to wake up.
   void shutdown();
 
- private:
+ protected:
   okvis::Time newestImuDataStamp_;           ///< Newest IMU data timestamp.
   okvis::Time imuDataNeededUntil_;           ///< A thread is waiting for IMU data newer or equal to this timestamp.
   std::condition_variable gotNeededImuData_; ///< Condition variable for waiting and notyfing.

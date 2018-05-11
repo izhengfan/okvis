@@ -48,6 +48,7 @@
 #include <okvis/IdProvider.hpp>
 #include <okvis/MultiFrame.hpp>
 #include <okvis/assert_macros.hpp>
+#include <okvis/FrameTypedefs.hpp>
 
 /// \brief okvis Main namespace of this package.
 namespace okvis {

@@ -345,6 +345,12 @@ if(BUILD_APPS)
     pthread
     ${Boost_LIBRARIES}
     )
+  add_executable(okvis_app_synchronous_kitti okvis_apps/src/okvis_app_synchronous_kitti.cpp)
+  target_link_libraries(okvis_app_synchronous_kitti
+    ${OKVIS_CORE_LIBS}
+    pthread
+    ${Boost_LIBRARIES}
+    )
   if(${VISENSORDRIVER_FOUND})
     target_link_libraries(okvis_app_synchronous ${VISensorDriver_LIBRARY})
   endif()

@@ -116,7 +116,7 @@ void ThreadedKFVio::init() {
     for (size_t im = 0; im < parameters_.nCameraSystem.numCameras(); im++) {
       std::stringstream windowname;
       windowname << "OKVIS camera " << im;
-  	  cv::namedWindow(windowname.str());
+      cv::namedWindow(windowname.str(), cv::WINDOW_NORMAL);
     }
   }
   

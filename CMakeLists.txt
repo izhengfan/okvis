@@ -110,143 +110,14 @@ find_package(Glog REQUIRED)
 include_directories(BEFORE ${GLOG_INCLUDE_DIRS}) 
 
 # brisk
-if(${USE_SYSTEM_BRISK})
-  find_package( brisk 2 REQUIRED )
-  include_directories(BEFORE ${BRISK_INCLUDE_DIRS})
-  message(STATUS "Using system brisk. Found at ${BRISK_INCLUDE_DIRS}.")
-else()
-  ExternalProject_Add(brisk_external
-    URL "https://www.doc.ic.ac.uk/~sleutene/software/brisk-2.0.3.zip"    
-    INSTALL_DIR ${CMAKE_INSTALL_PREFIX}
-    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR> -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE}
-    PREFIX ${CMAKE_CURRENT_BINARY_DIR}/brisk
-    BUILD_IN_SOURCE 0
-    BUILD_COMMAND make -j${N_CORES}
-    INSTALL_COMMAND make install
-    )
-  add_library(brisk STATIC IMPORTED)
-  add_library(agast STATIC IMPORTED)
-  set(BRISK_LIBRARIES brisk agast)
-  set_target_properties(brisk PROPERTIES IMPORTED_LOCATION ${CMAKE_INSTALL_PREFIX}/lib/libbrisk.a)
-  set_target_properties(agast PROPERTIES IMPORTED_LOCATION ${CMAKE_INSTALL_PREFIX}/lib/libagast.a)
-  add_dependencies(brisk brisk_external)
-  add_dependencies(agast brisk_external)
+find_package(OpenCV REQUIRED)
+find_package(brisk 2 REQUIRED
+   PATHS $ENV{HOME}/.local/okvis-master/lib/CMake/brisk NO_DEFAULT_PATH)
+find_package( Ceres 1.9 REQUIRED
+   PATHS $ENV{HOME}/.local/okvis-master/share/Ceres NO_DEFAULT_PATH)
+find_package( opengv  REQUIRED
+   PATHS $ENV{HOME}/.local/okvis-master/lib/CMake/opengv NO_DEFAULT_PATH)
 
-  # install it once built
-  install(FILES ${CMAKE_INSTALL_PREFIX}/lib/libbrisk.a ${CMAKE_INSTALL_PREFIX}/lib/libagast.a 
-    DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
-  install(DIRECTORY ${CMAKE_INSTALL_PREFIX}/include/brisk/ 
-    DESTINATION ${CMAKE_INSTALL_PREFIX}/include/brisk/)
-  install(DIRECTORY ${CMAKE_INSTALL_PREFIX}/lib/CMake/brisk/
-    DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/CMake/brisk/)
-endif()
-
-# ceres
-find_package(SuiteSparse REQUIRED QUIET) #will be needed in any case...
-find_package(CXSparse QUIET) #optional
-if(${USE_SYSTEM_CERES})
-  list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
-  find_package( Ceres 1.9 REQUIRED )
-  include_directories(BEFORE ${CERES_INCLUDE_DIRS})
-  message(STATUS "Using system Ceres.")
-else()
-  set(CERES_VERSION 1.9.0)
-  set(CERES_TAG 7c57de5080c9f5a4f067e2d20b5f33bad5b1ade6) #version 1.9. Newer ones would need adaptation with ceres::ParameterBlock
-  ExternalProject_Add(ceres_external
-    GIT_REPOSITORY https://ceres-solver.googlesource.com/ceres-solver
-    GIT_TAG ${CERES_TAG}
-    UPDATE_COMMAND ""
-    INSTALL_DIR ${CMAKE_INSTALL_PREFIX}
-    CMAKE_ARGS 
-    -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR> 
-    -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE}
-    -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS} 
-    -DBUILD_EXAMPLES:BOOL=OFF
-    -DBUILD_TESTING:BOOL=OFF
-    PREFIX ${CMAKE_CURRENT_BINARY_DIR}/ceres
-    BUILD_IN_SOURCE 0
-    BUILD_COMMAND make -j${N_CORES}
-    INSTALL_COMMAND make install
-    )
-
-  add_library(ceres UNKNOWN IMPORTED)
-  # Heuristic for determining LIB_SUFFIX from ceres
-  set(CERES_LIB_PREFIX "lib")
-  if (CMAKE_SYSTEM_NAME MATCHES "Linux" AND
-      NOT DEFINED LIB_SUFFIX AND
-      NOT CMAKE_CROSSCOMPILING AND
-      CMAKE_SIZEOF_VOID_P EQUAL "8" AND
-      NOT EXISTS "/etc/debian_version" AND
-      NOT EXISTS "/etc/arch-release")
-    set(CERES_LIB_PREFIX "lib64")
-  endif ()
-
-  # to find it from 3rd party software, since not added to registry:
-  set(OKVIS_CERES_CONFIG "${CMAKE_INSTALL_PREFIX}/share/Ceres/")
-
-  if ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
-    set_property(TARGET ceres PROPERTY IMPORTED_LOCATION
-      ${CMAKE_INSTALL_PREFIX}/${CERES_LIB_PREFIX}/libceres-debug.a )
-  else () 
-    set_property(TARGET ceres PROPERTY IMPORTED_LOCATION
-      ${CMAKE_INSTALL_PREFIX}/${CERES_LIB_PREFIX}/libceres.a )
-  endif ()
-
-  find_package(OpenMP QUIET)
-  if (OPENMP_FOUND)
-    message(STATUS "OpenMP found")
-    add_definitions(-DUSE_OPENMP)
-    set(CERES_LIBRARIES ceres gomp ${SUITESPARSE_LIBRARIES} ${CXSPARSE_LIBRARIES} ${Eigen_LIBS} ${GLOG_LIBRARY}) #ceres won't export these
-  else ()
-    message(STATUS "OpenMP NOT found")
-    set(CERES_LIBRARIES ceres ${SUITESPARSE_LIBRARIES} ${CXSPARSE_LIBRARIES}  ${Eigen_LIBS} ${GLOG_LIBRARY}) #ceres won't export these
-  endif ()
-  add_dependencies(${CERES_LIBRARIES} ceres_external)
-
-  # install it once built
-  install(FILES ${CMAKE_INSTALL_PREFIX}/${CERES_LIB_PREFIX}/libceres.a 
-    DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
-  install(DIRECTORY ${CMAKE_INSTALL_PREFIX}/include/ceres/ 
-    DESTINATION ${CMAKE_INSTALL_PREFIX}/include/ceres/)
-  install(DIRECTORY ${CMAKE_INSTALL_PREFIX}/share/Ceres/
-    DESTINATION ${CMAKE_INSTALL_PREFIX}/share/Ceres/)
-endif()
-
-# OpenGV
-set(CMAKE_CXX_FLAGS_WSUPPRESS 
-  "${CMAKE_CXX_FLAGS} -Wno-unused-parameter -Wno-maybe-uninitialized -Wno-sign-compare -Wno-unused-but-set-variable -Wno-unused-variable -Wno-pedantic")
-message(STATUS "NOTE: Suppressing some warnings when compiling OpenGV.")
-ExternalProject_Add(opengv_external
-  GIT_REPOSITORY https://github.com/laurentkneip/opengv
-  GIT_TAG cc32b16281aa6eab67cb28a61cf87a2a5c2b0961
-  UPDATE_COMMAND ""
-  PATCH_COMMAND # forcing static libs
-  COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/cmake/opengv/CMakeLists.txt ${CMAKE_CURRENT_BINARY_DIR}/opengv/src/opengv/CMakeLists.txt
-  COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/cmake/opengv/opengvConfig.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/opengv/src/opengv/opengvConfig.cmake.in
-  COMMENT "Forcing our own CMakeLists.txt to build OpenGV (static library support)."
-  CMAKE_ARGS 
-  -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR> 
-  -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE} 
-  -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS_WSUPPRESS} # suppress warnings...
-  PREFIX ${CMAKE_CURRENT_BINARY_DIR}/opengv
-  SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/opengv/src/opengv
-  INSTALL_DIR ${CMAKE_INSTALL_PREFIX}
-  BUILD_IN_SOURCE 0
-  BUILD_COMMAND make -j${N_CORES}
-  INSTALL_COMMAND make install
-  )
-add_library(opengv STATIC IMPORTED)
-set(OpenGV_LIBRARIES opengv)
-set_target_properties(opengv PROPERTIES IMPORTED_LOCATION ${CMAKE_INSTALL_PREFIX}/lib/libopengv.a)
-add_dependencies(${OpenGV_LIBRARIES} opengv_external)
-
-# install it once built
-install(FILES ${CMAKE_INSTALL_PREFIX}/lib/libopengv.a 
-  DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
-install(DIRECTORY ${CMAKE_INSTALL_PREFIX}/include/opengv/ 
-  DESTINATION ${CMAKE_INSTALL_PREFIX}/include/opengv/)
-install(DIRECTORY ${CMAKE_INSTALL_PREFIX}/lib/CMake/opengv/
-  DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/CMake/opengv/)
 
 if(${BUILD_TESTS})
   # gmock
@@ -338,18 +209,32 @@ if(BUILD_APPS)
     ${OKVIS_CORE_LIBS}
     pthread 
     ${Boost_LIBRARIES}
+    ${OpenCV_LIBRARIES}
+    brisk agast opengv
     )
   add_executable(okvis_app_synchronous_upenn okvis_apps/src/okvis_app_synchronous_upenn.cpp)
   target_link_libraries(okvis_app_synchronous_upenn
     ${OKVIS_CORE_LIBS}
     pthread
     ${Boost_LIBRARIES}
+    ${OpenCV_LIBRARIES}
+    brisk agast opengv
     )
   add_executable(okvis_app_synchronous_kitti okvis_apps/src/okvis_app_synchronous_kitti.cpp)
   target_link_libraries(okvis_app_synchronous_kitti
     ${OKVIS_CORE_LIBS}
     pthread
     ${Boost_LIBRARIES}
+    ${OpenCV_LIBRARIES}
+    brisk agast opengv
+    )
+  add_executable(okvis_app_synchronous_szri okvis_apps/src/okvis_app_synchronous_szri.cpp)
+  target_link_libraries(okvis_app_synchronous_szri
+    ${OKVIS_CORE_LIBS}
+    pthread
+    ${Boost_LIBRARIES}
+    ${OpenCV_LIBRARIES}
+    brisk agast opengv
     )
   if(${VISENSORDRIVER_FOUND})
     target_link_libraries(okvis_app_synchronous ${VISensorDriver_LIBRARY})

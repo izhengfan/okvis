@@ -33,3 +33,5 @@ documentation/html/
 *.user
 build
 .*
+
+Debug

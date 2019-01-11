@@ -9,6 +9,14 @@ endif()
 # require Eigen
 find_package( Eigen REQUIRED )
 include_directories(${EIGEN_INCLUDE_DIR}) 
+# brisk
+find_package(OpenCV REQUIRED)
+find_package(brisk 2 REQUIRED
+   PATHS $ENV{HOME}/.local/okvis-master/lib/CMake/brisk NO_DEFAULT_PATH)
+find_package( Ceres 1.9 REQUIRED
+   PATHS $ENV{HOME}/.local/okvis-master/share/Ceres NO_DEFAULT_PATH)
+find_package( opengv  REQUIRED
+   PATHS $ENV{HOME}/.local/okvis-master/lib/CMake/opengv NO_DEFAULT_PATH)
 
 # build the library
 add_library(${PROJECT_NAME} 
@@ -33,6 +41,7 @@ target_link_libraries(${PROJECT_NAME}
   PRIVATE ${BRISK_LIBRARIES} 
   PRIVATE ${OpenGV_LIBRARIES} 
   PRIVATE ${CERES_LIBRARIES}
+  brisk opengv
   PUBLIC okvis_util
   PUBLIC okvis_cv 
   PUBLIC okvis_ceres 

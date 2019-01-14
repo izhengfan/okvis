@@ -112,11 +112,13 @@ include_directories(BEFORE ${GLOG_INCLUDE_DIRS})
 # brisk
 find_package(OpenCV REQUIRED)
 find_package(brisk 2 REQUIRED
-   PATHS $ENV{HOME}/.local/okvis-master/lib/CMake/brisk NO_DEFAULT_PATH)
+    PATHS $ENV{HOME}/.local/okvis-master/lib/CMake/brisk NO_DEFAULT_PATH)
+include_directories(${BRISK_INCLUDE_DIRS})
 find_package( Ceres 1.9 REQUIRED
-   PATHS $ENV{HOME}/.local/okvis-master/share/Ceres NO_DEFAULT_PATH)
-find_package( opengv  REQUIRED
-   PATHS $ENV{HOME}/.local/okvis-master/lib/CMake/opengv NO_DEFAULT_PATH)
+    PATHS $ENV{HOME}/.local/okvis-master/share/Ceres NO_DEFAULT_PATH)
+include_directories(${CERES_INCLUDE_DIRS})
+link_directories($ENV{HOME}/.local/okvis-master/lib/)
+set(OpenGV_LIBRARIES opengv)
 
 
 if(${BUILD_TESTS})
